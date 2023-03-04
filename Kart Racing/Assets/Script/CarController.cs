@@ -15,6 +15,12 @@ public class CarController : MonoBehaviour
     public float groundRayLength = 0.75f;
     public float gravityMod =10f;
 
+    public Transform leftFrontWheel, rightFrontWheel;
+    public float maxWheelTurn = 25f;
+    public ParticleSystem[] dustTrail;
+    public float maxEmission = 25f, emissionFadeSpeed = 20f;
+    private float emissionRate;
+
     private float speedInput;
     private float turnInput;
     private bool grounded;
@@ -27,6 +33,7 @@ public class CarController : MonoBehaviour
         rb.transform.parent = null;
 
         dragOnGround = rb.drag;
+
     }
 
     // Update is called once per frame
@@ -48,8 +55,30 @@ public class CarController : MonoBehaviour
             * Time.deltaTime * Mathf.Sign(speedInput) * (rb.velocity.magnitude/maxSpeed) ,0f));
         }
 
+        //turning the wheels
+        leftFrontWheel.localRotation = Quaternion.Euler(leftFrontWheel.localRotation.eulerAngles.x, (turnInput * maxWheelTurn) - 180, leftFrontWheel.localRotation.eulerAngles.z);
+        rightFrontWheel.localRotation = Quaternion.Euler(rightFrontWheel.localRotation.eulerAngles.x, (turnInput * maxWheelTurn), rightFrontWheel.localRotation.eulerAngles.z);
+
 
         transform.position = rb.position;
+
+        //Controll particles emission
+        emissionRate = Mathf.MoveTowards(emissionRate, 0f, emissionFadeSpeed * Time.deltaTime);
+
+        if(grounded && (Mathf.Abs(turnInput) > 0.5f || (rb.velocity.magnitude < maxSpeed * 0.5f && rb.velocity.magnitude != 0))){
+            emissionRate = maxEmission;
+        }
+
+        if(rb.velocity.magnitude <= 0.5f){
+            emissionRate = 0;
+        }
+
+        for (int i = 0; i < dustTrail.Length; i++)
+        {
+            var emissionModule = dustTrail[i].emission;
+
+            emissionModule.rateOverTime = emissionRate;
+        }
     }
     
     private void FixedUpdate() 
@@ -59,12 +88,14 @@ public class CarController : MonoBehaviour
 
         RaycastHit hit;
         Vector3 normalTarget = Vector3.zero;
+
         if (Physics.Raycast(groundRayPoint.position, -transform.up, out hit, groundRayLength, whatIsGround))
         {
             grounded = true;
 
             normalTarget = hit.normal;
         }
+
         //when on ground rotate to the normal
         if(grounded){
             transform.rotation = Quaternion.FromToRotation(transform.up, normalTarget)*transform.rotation;
